@@ -164,6 +164,25 @@ This is useful if you use very long branch names."
     map)
   "Keymap for `jitte-log-mode'.")
 
+(defvar jitte-log-mode-evil-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map jitte-mode-evil-map)
+    ;; Log-specific operations accessible via leader keys
+    (define-key map "gj" #'jitte-log-move-to-revision)
+    (define-key map "=" #'jitte-log-toggle-commit-limit)
+    (define-key map "+" #'jitte-log-double-commit-limit)
+    (define-key map "-" #'jitte-log-half-commit-limit)
+    (define-key map (kbd "RET") #'jitte-log-show-commit)
+    (define-key map "gl" #'jitte-log-refresh)
+    (define-key map "ge" #'jitte-log-edit)
+    (define-key map "gn" #'jitte-log-new)
+    (define-key map "gd" #'jitte-log-describe)
+    (define-key map "gR" #'jitte-log-rebase-interactive)
+    (define-key map "gr" #'jitte-log-rebase-prompt)
+    (define-key map "gA" #'jitte-log-cherry-pick)
+    map)
+  "Keymap for `jitte-log-mode' when evil-mode is active.")
+
 ;;; Section Keymaps
 
 (defvar jitte-commit-section-map
@@ -198,7 +217,30 @@ Type \\[jitte-log-rebase-prompt] to rebase commit at point with prompted destina
   :group 'jitte-log
   (hack-dir-local-variables-non-file-buffer)
   (setq truncate-lines t)
+  ;; Setup evil-mode integration for log mode
+  (jitte-log-setup-evil-keymaps)
   (run-hooks 'jitte-log-mode-hook))
+
+;;; Evil Mode Integration
+
+(defun jitte-log-setup-evil-keymaps ()
+  "Setup keymaps for evil-mode integration in jitte-log-mode."
+  (declare-function jitte-mode--evil-active-p "jitte-mode")
+  (when (and (fboundp 'jitte-use-evil-bindings)
+             jitte-use-evil-bindings 
+             (jitte-mode--evil-active-p))
+    (jitte-log-setup-evil-keymap)))
+
+(defun jitte-log-setup-evil-keymap ()
+  "Setup evil keymap for jitte-log-mode."
+  (when (boundp 'evil-normal-state-local-map)
+    ;; Create a minor mode for log-specific evil bindings
+    (unless (boundp 'jitte-log-evil-mode)
+      (define-minor-mode jitte-log-evil-mode
+        "Evil integration for jitte-log-mode."
+        :init-value t
+        :keymap jitte-log-mode-evil-map))
+    (jitte-log-evil-mode 1)))
 
 ;;; Setup
 

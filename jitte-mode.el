@@ -235,6 +235,36 @@ which in turn uses the function specified here."
     map)
   "Keymap for Jitte major mode.")
 
+(defvar jitte-mode-evil-map
+  (let ((map (make-sparse-keymap)))
+    ;; Keep essential Jitte bindings on easy keys
+    (define-key map "q" #'jitte-mode-bury-buffer)
+    (define-key map "Q" #'jitte-mode-quit-window)
+    (define-key map (kbd "RET") #'jitte-visit-thing)
+    (define-key map "\t" #'jitte-section-toggle)
+    (define-key map [backtab] #'jitte-section-cycle-global)
+    (define-key map "^" #'jitte-section-up)
+    (define-key map "\M-p" #'jitte-section-backward-sibling)
+    (define-key map "\M-n" #'jitte-section-forward-sibling)
+    (define-key map "\M-\t" #'jitte-section-cycle)
+    (define-key map [M-tab] #'jitte-section-cycle)
+    ;; Common operations on leader-like keys
+    (define-key map "gr" #'jitte-refresh)
+    (define-key map "gR" #'jitte-refresh-all)
+    (define-key map "?" #'jitte-help)
+    (define-key map (kbd "C-c C-c") #'jitte-dispatch-popup)
+    (define-key map (kbd "C-c C-e") #'jitte-edit-line)
+    ;; Context keys for diff operations
+    (define-key map "+" #'jitte-diff-more-context)
+    (define-key map "-" #'jitte-diff-less-context)
+    (define-key map "0" #'jitte-diff-default-context)
+    (define-key map "<" #'jitte-diff-smaller-hunks)
+    (define-key map ">" #'jitte-diff-larger-hunks)
+    (define-key map (kbd "C-x 4 RET") #'jitte-visit-thing-other-window)
+    (define-key map (kbd "C-x 5 RET") #'jitte-visit-thing-other-frame)
+    map)
+  "Keymap for Jitte major mode when evil-mode is active.")
+
 (define-derived-mode jitte-mode magit-section-mode "Jitte"
   "Parent major mode from which Jitte major modes inherit.
 
@@ -251,6 +281,8 @@ Please see the manual for a complete description of Jitte.
   (setq-local bookmark-make-record-function #'jitte-bookmark-make-record)
   (when (bound-and-true-p global-diff-hl-mode)
     (diff-hl-mode -1))
+  ;; Configure evil-mode integration
+  (jitte-setup-evil-keymaps)
   (run-hooks 'jitte-mode-hook))
 
 ;;; Buffer Management
@@ -363,6 +395,49 @@ With prefix argument KILL-BUFFER, kill the buffer instead."
   (setq header-line-format
         (substitute-command-keys
          "\\<jitte-mode-map>Type \\[jitte-dispatch] for help")))
+
+;;; Evil Mode Integration
+
+(defun jitte-setup-evil-keymaps ()
+  "Setup keymaps for evil-mode integration if needed."
+  (when (and (fboundp 'jitte-use-evil-bindings)
+             jitte-use-evil-bindings 
+             (jitte-mode--evil-active-p))
+    (jitte-setup-evil-keymap-for-mode)))
+
+(defun jitte-mode--evil-active-p ()
+  "Return non-nil if evil-mode is active."
+  (and (boundp 'evil-mode) evil-mode))
+
+(defun jitte-setup-evil-keymap-for-mode ()
+  "Setup evil keymap for the current jitte mode."
+  (when (boundp 'evil-normal-state-local-map)
+    ;; Use the evil-friendly keymap as a minor-mode keymap
+    (let ((minor-mode-name (intern (format "%s-evil-mode" major-mode))))
+      (unless (boundp minor-mode-name)
+        (eval `(define-minor-mode ,minor-mode-name
+                "Evil integration for jitte mode."
+                :init-value t
+                :keymap jitte-mode-evil-map)))
+      (funcall minor-mode-name 1))))
+
+(defun jitte-previous-line ()
+  "Move to previous line, compatible with evil-mode."
+  (interactive)
+  (if (and (jitte-mode--evil-active-p) 
+           (boundp 'evil-state)
+           (eq evil-state 'normal))
+      (evil-previous-line)
+    (magit-section-backward)))
+
+(defun jitte-next-line ()
+  "Move to next line, compatible with evil-mode."
+  (interactive)
+  (if (and (jitte-mode--evil-active-p) 
+           (boundp 'evil-state)
+           (eq evil-state 'normal))
+      (evil-next-line)
+    (magit-section-forward)))
 
 ;;; Section Navigation
 

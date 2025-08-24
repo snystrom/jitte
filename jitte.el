@@ -57,6 +57,20 @@
 (require 'package nil t)
 (require 'with-editor)
 
+;;; Evil Mode Integration
+
+(defcustom jitte-use-evil-bindings t
+  "When non-nil, configure Jitte to work with evil-mode.
+This enables vim-like navigation (hjkl) while preserving Jitte functionality
+through leader keys and alternative bindings."
+  :package-version '(jitte . "0.1.0")
+  :group 'jitte
+  :type 'boolean)
+
+(defun jitte-evil-mode-p ()
+  "Return non-nil if evil-mode is active."
+  (and (boundp 'evil-mode) evil-mode))
+
 ;;; Autoloads
 
 ;;;###autoload
@@ -188,6 +202,15 @@ This function is suitable for binding to a global key."
         (let ((default-directory root))
           (jitte-status))
       (user-error "Not in a jj repository"))))
+
+;;;###autoload  
+(with-eval-after-load 'evil
+  (when (and jitte-use-evil-bindings (fboundp 'evil-set-initial-state))
+    ;; Set jitte modes to start in normal state for evil-mode
+    (evil-set-initial-state 'jitte-mode 'normal)
+    (evil-set-initial-state 'jitte-log-mode 'normal)
+    (evil-set-initial-state 'jitte-status-mode 'normal)
+    (evil-set-initial-state 'jitte-diff-mode 'normal)))
 
 ;;; Footer
 
