@@ -43,7 +43,7 @@
   :type 'hook)
 
 (defcustom jitte-log-default-arguments
-  '("--graph")
+  '() ; cli flags go here if needed
   "Default arguments for jj log."
   :package-version '(jitte . "0.1.0")
   :group 'jitte-log
@@ -114,6 +114,12 @@ Only considered when moving past the last entry with
 (defcustom jitte-log-show-refname-after-summary nil
   "Whether to show refnames after the commit summary.
 This is useful if you use very long branch names."
+  :package-version '(jitte . "0.1.0")
+  :group 'jitte-log
+  :type 'boolean)
+
+(defcustom jitte-log-debug nil
+  "Whether to show debug information for jj log commands."
   :package-version '(jitte . "0.1.0")
   :group 'jitte-log
   :type 'boolean)
@@ -275,12 +281,32 @@ Type \\[jitte-log-rebase-prompt] to rebase commit at point with prompted destina
                           (when revset (list "-r" revset))
                           args
                           files)))
-    (ignore-errors (apply #'jitte-run-jj-sync cmd-args))))
+    (when jitte-log-debug
+      (message "Running jj command: jj %s (in %s)" 
+               (string-join cmd-args " ")
+               default-directory))
+    (condition-case err
+        (let ((output (apply #'jitte-run-jj-sync cmd-args)))
+          (when jitte-log-debug
+            (message "jj log returned %d characters of output" (length output)))
+          output)
+      (error 
+       (let ((error-msg (error-message-string err)))
+         (message "jj log command failed: %s" error-msg)
+         (format "Error running jj log command:\nCommand: jj %s\nDirectory: %s\nError: %s\n\nThis usually means:\n- No jj repository in current directory\n- Invalid revset syntax\n- jj executable not found\n\nTry running 'jj status' to check if this is a valid jj repository."
+                 (string-join cmd-args " ")
+                 default-directory
+                 error-msg))))))
 
 (defun jitte-wash-log-from-output (output)
   "Wash log OUTPUT into magit sections."
-  (let ((lines (split-string output "\n" t)))
-    (jitte-wash-log-lines lines)))
+  (if (string-prefix-p "Error running jj log command:" output)
+      ;; This is an error message, display it as-is with appropriate face
+      (magit-insert-section (error)
+        (insert (propertize output 'font-lock-face 'error)))
+    ;; Normal log output, process as usual
+    (let ((lines (split-string output "\n" t)))
+      (jitte-wash-log-lines lines))))
 
 (defun jitte-wash-log-lines (lines)
   "Process LINES of jj log output into commit sections."
