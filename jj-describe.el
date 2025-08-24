@@ -102,6 +102,7 @@ when a Jujutsu description file is opened."
   ;; Enable our minor mode
   (jj-describe-mode 1)
   
+
   ;; Set up evil-mode integration if available
   (jj-describe--setup-evil)
   
@@ -123,6 +124,7 @@ when a Jujutsu description file is opened."
     ;; Start in insert state for commit editing
     (when (fboundp 'evil-insert-state)
       (evil-insert-state))))
+
 
 ;;; Interactive Commands
 
@@ -166,12 +168,18 @@ Prompts for the revision to describe."
       (message "Running jj %s..." (string-join args " "))
       process)))
 
+(defun jj-describe--success-cleanup ()
+  "Close describe buffer."
+  (interactive)
+  (kill-buffer (current-buffer))
+  (message "jj describe completed"))
+
 (defun jj-describe--process-sentinel (process event)
   "Handle completion of jj describe PROCESS with EVENT."
   (when (memq (process-status process) '(exit signal))
     (let ((exit-code (process-exit-status process)))
       (if (= exit-code 0)
-          (message "jj describe completed")
+          (jj-describe--success-cleanup)
         (message "jj describe failed with exit code %d" exit-code)))))
 
 ;;; Autoload and Activation
