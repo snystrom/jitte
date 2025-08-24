@@ -18,6 +18,7 @@
 
 (require 'magit)
 (require 'transient)
+(require 'jj-describe)
 
 ;;; Configuration
 
@@ -92,6 +93,7 @@
   "g"   #'magit-refresh
   "q"   #'magit-log-bury-buffer
   "e"   #'jj-edit
+  "d"   #'jj-log-describe
   "n"   #'jj-new
   "u"   #'jj-quick-undo
   "R"   #'jj-rebase-interactive
@@ -457,6 +459,7 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
      (evil-define-key 'normal jj-log-mode-map
        "n" #'jj-new
        "e" #'jj-edit
+       "d" #'jj-log-describe
        "R" #'jj-rebase-interactive
        "r" #'jj-rebase-prompt
        "u" #'jj-quick-undo)
@@ -465,6 +468,7 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
      (evil-define-key 'normal jj-commit-section-map
        "n" #'jj-new
        "e" #'jj-edit
+       "d" #'jj-log-describe
        "R" #'jj-rebase-interactive
        "r" #'jj-rebase-prompt
        "u" #'jj-quick-undo)
@@ -478,6 +482,12 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
        (kbd "C-c C-k") #'jj-rebase-select-quit)))
 
 ;;; Interactive Commands
+(defun jj-log-describe (&optional revision)
+  "Edit the description of REVISION (defaults to @).
+Opens the description in an Emacs buffer for editing."
+  (interactive)
+  (jj-describe revision)
+  (magit-refresh))
 
 (defun jj--run-command (command &rest args)
   "Run jj COMMAND with ARGS and display result."
