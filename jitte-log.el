@@ -49,6 +49,45 @@
   :group 'jitte-log
   :type '(repeat string))
 
+;;; Faces
+
+(defface jitte-log-current-commit
+  '((t :foreground "orange" :weight bold))
+  "Face for the current commit (@) symbol."
+  :group 'jitte-faces)
+
+(defface jitte-log-mutable-commit
+  '((t :foreground "cyan" :weight bold))
+  "Face for mutable commit (○) symbols."
+  :group 'jitte-faces)
+
+(defface jitte-log-immutable-commit
+  '((t :foreground "green" :weight bold))
+  "Face for immutable commit (◆) symbols."
+  :group 'jitte-faces)
+
+(defface jitte-log-elided
+  '((t :inherit jitte-dimmed))
+  "Face for elided commits (~) symbol."
+  :group 'jitte-faces)
+
+(defface jitte-log-graph
+  '((t :inherit jitte-dimmed))
+  "Face for graph lines."
+  :group 'jitte-faces)
+
+(defface jitte-log-author
+  '((((class color) (background light)) :foreground "firebrick")
+    (((class color) (background  dark)) :foreground "tomato"))
+  "Face for author names in log."
+  :group 'jitte-faces)
+
+(defface jitte-log-date
+  '((((class color) (background light)) :foreground "grey50")
+    (((class color) (background  dark)) :foreground "grey50"))
+  "Face for dates in log."
+  :group 'jitte-faces)
+
 (defcustom jitte-log-section-commit-count 256
   "How many commits to show in certain log sections.
 These sections are `recent commits', `unpushed to <remote>'
@@ -79,6 +118,26 @@ This is useful if you use very long branch names."
   :group 'jitte-log
   :type 'boolean)
 
+;;; Variables
+
+(defvar-local jitte-log-buffer-args nil
+  "Arguments used to generate the current log buffer.")
+
+(defvar-local jitte-log-buffer-revs nil
+  "Revisions shown in the current log buffer.")
+
+;;; Regexps for parsing jj log output
+
+(defconst jitte-log-commit-re
+  (concat "^\\([@ ◆○~│├─┬┐┘┌╮╯╰╭╲╱─┴┤]*\\) +"        ; Graph characters (group 1)
+          "\\([a-z0-9]+\\)"                          ; Change ID (group 2) 
+          " +\\([^0-9]+\\)"                          ; Author (group 3)
+          " +\\([0-9]+-[0-9]+-[0-9]+ [0-9:]+\\)"     ; Date (group 4)
+          "\\(?: +\\([a-z0-9_()@]+\\)\\)?"           ; Branch/refs (group 5)
+          "\\(?: +\\([a-z0-9]+\\)\\)?"              ; Hash (group 6)
+          )
+  "Regexp to match jj log commit lines.")
+
 ;;; Mode
 
 (defvar jitte-log-mode-map
@@ -88,11 +147,46 @@ This is useful if you use very long branch names."
     (define-key map "=" #'jitte-log-toggle-commit-limit)
     (define-key map "+" #'jitte-log-double-commit-limit)
     (define-key map "-" #'jitte-log-half-commit-limit)
+    (define-key map "RET" #'jitte-log-show-commit)
+    (define-key map "l" #'jitte-log-refresh)
+    (define-key map "e" #'jitte-log-edit)
+    (define-key map "n" #'jitte-log-new)
+    (define-key map "d" #'jitte-log-describe)
+    (define-key map "R" #'jitte-log-rebase-interactive)
+    (define-key map "r" #'jitte-log-rebase-prompt)
+    (define-key map "A" #'jitte-log-cherry-pick)
     map)
   "Keymap for `jitte-log-mode'.")
 
+;;; Section Keymaps
+
+(defvar jitte-commit-section-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "RET" #'jitte-log-show-commit)
+    (define-key map "l" #'jitte-log-refresh)
+    (define-key map "e" #'jitte-log-edit)
+    (define-key map "n" #'jitte-log-new)
+    (define-key map "d" #'jitte-log-describe)
+    (define-key map "R" #'jitte-log-rebase-interactive)
+    (define-key map "r" #'jitte-log-rebase-prompt)
+    (define-key map "A" #'jitte-log-cherry-pick)
+    map)
+  "Keymap for `commit' sections in jitte-log buffers.")
+
+;; Register the section map
+(with-eval-after-load 'magit-section
+  (put 'commit :magit-section-keymap jitte-commit-section-map))
+
 (define-derived-mode jitte-log-mode jitte-mode "Jitte Log"
   "Mode for browsing jj commit history.
+
+\<jitte-log-mode-map>\
+Type \\[jitte-refresh] to refresh the current buffer.
+Type \\[jitte-log-show-commit] to visit the commit at point.
+Type \\[jitte-log-edit] to edit the commit at point.
+Type \\[jitte-log-new] to create a new commit on top of the commit at point.
+Type \\[jitte-log-rebase-interactive] to rebase commit at point interactively.
+Type \\[jitte-log-rebase-prompt] to rebase commit at point with prompted destination.
 
 \\{jitte-log-mode-map}"
   :group 'jitte-log
@@ -173,7 +267,7 @@ This is useful if you use very long branch names."
          (files jitte-buffer-log-files)
          (output (jitte-get-log-output revset args files)))
     (when output
-      (jitte-wash-log output))))
+      (jitte-wash-log-from-output output))))
 
 (defun jitte-get-log-output (revset args files)
   "Get log output for REVSET with ARGS and FILES."
@@ -183,30 +277,99 @@ This is useful if you use very long branch names."
                           files)))
     (ignore-errors (apply #'jitte-run-jj-sync cmd-args))))
 
-(defun jitte-wash-log (output)
-  "Wash log OUTPUT into sections."
-  (let ((lines (split-string output "\n")))
+(defun jitte-wash-log-from-output (output)
+  "Wash log OUTPUT into magit sections."
+  (let ((lines (split-string output "\n" t)))
+    (jitte-wash-log-lines lines)))
+
+(defun jitte-wash-log-lines (lines)
+  "Process LINES of jj log output into commit sections."
+  (let ((current-commit nil)
+        (current-lines nil))
     (dolist (line lines)
-      (unless (string-empty-p line)
-        (jitte-insert-log-line line)))))
+      (if (string-match jitte-log-commit-re line)
+          (progn
+            ;; Process previous commit if exists
+            (when current-commit
+              (jitte-insert-commit-section current-commit (nreverse current-lines)))
+            ;; Start new commit
+            (setq current-commit (match-string 2 line))
+            (setq current-lines (list line)))
+        ;; This is a continuation line (description)
+        (when current-commit
+          (push line current-lines))))
+    ;; Process the last commit
+    (when current-commit
+      (jitte-insert-commit-section current-commit (nreverse current-lines)))))
 
-(defun jitte-insert-log-line (line)
-  "Insert a log LINE."
-  (cond
-   ((string-match "^\\([a-f0-9]\\{12\\}\\) \\(.*\\)$" line)
-    (let ((commit-id (match-string 1 line))
-          (summary (match-string 2 line)))
-      (jitte-insert-commit-line commit-id summary)))
-   (t
-    (insert line "\n"))))
+(defun jitte-insert-commit-section (change-id lines)
+  "Insert a commit section for CHANGE-ID with LINES."
+  (magit-insert-section (commit change-id)
+    (dolist (line lines)
+      (insert (jitte-log-colorize-line line) "\n"))))
 
-(defun jitte-insert-commit-line (commit-id summary)
-  "Insert a commit line for COMMIT-ID with SUMMARY."
-  (magit-insert-section (commit commit-id)
-    (insert (propertize commit-id 'font-lock-face 'jitte-hash))
-    (insert " ")
-    (insert summary)
-    (insert "\n")))
+(defun jitte-log-colorize-line (line)
+  "Add color properties to a jj log LINE while preserving format."
+  (with-temp-buffer
+    (insert line)
+    (goto-char (point-min))
+    
+    ;; Color commit symbols with different colors for mutable vs immutable
+    (while (re-search-forward "\\(@\\|○\\|◆\\|~\\)" nil t)
+      (let ((symbol (match-string 1))
+            (start (match-beginning 1))
+            (end (match-end 1)))
+        (put-text-property start end 'font-lock-face
+                           (cond
+                            ((string= symbol "@") 'jitte-log-current-commit)
+                            ((string= symbol "○") 'jitte-log-mutable-commit)
+                            ((string= symbol "◆") 'jitte-log-immutable-commit)
+                            ((string= symbol "~") 'jitte-log-elided)))))
+    
+    ;; Color graph lines (but not the commit symbols we just colored)
+    (goto-char (point-min))
+    (while (re-search-forward "\\([│├─┬┐┘┌╮╯╰╭╲╱┴┤]\\)" nil t)
+      (put-text-property (match-beginning 1) (match-end 1) 
+                         'font-lock-face 'jitte-log-graph))
+    
+    ;; Color change ID (8-char hex after graph)
+    (goto-char (point-min))
+    (when (re-search-forward "\\b\\([a-z0-9]\\{8\\}\\)\\b" nil t)
+      (put-text-property (match-beginning 1) (match-end 1)
+                         'font-lock-face 'jitte-hash))
+    
+    ;; Color email addresses
+    (goto-char (point-min))
+    (when (re-search-forward "\\([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]\\{2,\\}\\)" nil t)
+      (put-text-property (match-beginning 1) (match-end 1)
+                         'font-lock-face 'jitte-log-author))
+    
+    ;; Color dates
+    (goto-char (point-min))
+    (when (re-search-forward "\\([0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\} [0-9]\\{2\\}:[0-9]\\{2\\}:[0-9]\\{2\\}\\)" nil t)
+      (put-text-property (match-beginning 1) (match-end 1)
+                         'font-lock-face 'jitte-log-date))
+    
+    ;; Color git hash at end of line
+    (goto-char (point-min))
+    (when (re-search-forward "\\b\\([a-f0-9]\\{7,40\\}\\)\\s-*$" nil t)
+      (put-text-property (match-beginning 1) (match-end 1)
+                         'font-lock-face 'jitte-hash))
+    
+    ;; Color bookmarks and refs
+    (goto-char (point-min))
+    (when (re-search-forward "[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\} [0-9]\\{2\\}:[0-9]\\{2\\}:[0-9]\\{2\\}" nil t)
+      (while (re-search-forward "\\b\\([a-zA-Z0-9_/@*()-][a-zA-Z0-9_/@*().-]*[a-zA-Z0-9_/@*().-]\\|[a-zA-Z0-9_/@*()-]\\)\\b" 
+                                (line-end-position) t)
+        (let ((candidate (match-string 1)))
+          ;; Skip if it looks like a hash (all lowercase hex)
+          (unless (and (>= (length candidate) 7)
+                       (string-match-p "^[a-f0-9]+$" candidate))
+            (put-text-property (match-beginning 1) (match-end 1)
+                               'font-lock-face 'jitte-branch-remote)))))
+    
+    (buffer-string)))
+
 
 ;;; Navigation
 
@@ -252,11 +415,32 @@ This is useful if you use very long branch names."
 
 ;;; Commands
 
+(defun jitte-log-show-commit (&optional revision)
+  "Show commit REVISION in a dedicated buffer."
+  (interactive)
+  (let ((revision (or revision
+                      (jitte-log-section-value-if 'commit)
+                      (read-string "Show revision: "))))
+    (when revision
+      (jitte-log-show-commit-buffer revision))))
+
+(defun jitte-log-show-commit-buffer (commit)
+  "Show COMMIT in a dedicated buffer."
+  (let* ((buffer-name (format "*jitte-revision: %s*" (substring commit 0 8)))
+         (buffer (get-buffer-create buffer-name)))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (jitte-revision-mode)
+        (jitte-revision-insert-commit commit)
+        (goto-char (point-min))))
+    (display-buffer buffer)))
+
 (defun jitte-show-commit (&optional revision)
   "Show commit REVISION."
   (interactive)
   (let ((revision (or revision
-                      (jitte-section-value-if 'commit)
+                      (jitte-log-section-value-if 'commit)
                       (read-string "Show revision: "))))
     (when revision
       (jitte-diff-setup-buffer revision))))
@@ -264,27 +448,52 @@ This is useful if you use very long branch names."
 (defun jitte-log-cherry-pick ()
   "Cherry-pick the commit at point."
   (interactive)
-  (when-let ((commit (jitte-section-value-if 'commit)))
+  (when-let ((commit (jitte-log-section-value-if 'commit)))
     (when (y-or-n-p (format "Cherry-pick %s? " commit))
       (jitte-run-jj-async "new" commit)
       (jitte-refresh))))
 
-(defun jitte-log-edit ()
-  "Edit the commit at point."
+(defun jitte-log-edit (&optional commit)
+  "Edit the commit at point or COMMIT."
   (interactive)
-  (when-let ((commit (jitte-section-value-if 'commit)))
-    (jitte-edit commit)))
+  (let ((change-id (or commit 
+                       (jitte-log-section-value-if 'commit)
+                       (user-error "No commit at point"))))
+    (when (y-or-n-p (format "Edit commit %s? " (substring change-id 0 8)))
+      (jitte-run-jj-async "edit" change-id)
+      (message "Editing commit %s" (substring change-id 0 8))
+      (jitte-refresh))))
 
-(defun jitte-log-describe ()
-  "Describe the commit at point."
+(defun jitte-log-new (&optional commit)
+  "Create a new commit on top of the commit at point or COMMIT."
   (interactive)
-  (when-let ((commit (jitte-section-value-if 'commit)))
+  (let ((change-id (or commit 
+                       (jitte-log-section-value-if 'commit)
+                       (user-error "No commit at point"))))
+    (when (y-or-n-p (format "Create new commit on top of %s? " (substring change-id 0 8)))
+      (jitte-run-jj-async "new" change-id)
+      (message "Created new commit on top of %s" (substring change-id 0 8))
+      (jitte-refresh))))
+
+(defun jitte-log-describe (&optional commit)
+  "Describe the commit at point or COMMIT."
+  (interactive)
+  (let ((change-id (or commit
+                       (jitte-log-section-value-if 'commit)
+                       (user-error "No commit at point"))))
     (let ((message (read-string "Description: ")))
       (when (not (string-empty-p message))
-        (jitte-run-jj-async "describe" "-r" commit "-m" message)
+        (jitte-run-jj-async "describe" "-r" change-id "-m" message)
+        (message "Updated description for %s" (substring change-id 0 8))
         (jitte-refresh)))))
 
 ;;; Utilities
+
+(defun jitte-log-section-value-if (type)
+  "Return the value of the current section if it is of TYPE."
+  (when-let ((section (magit-current-section)))
+    (when (eq (magit-section-type section) type)
+      (magit-section-value section))))
 
 (defun jitte-section-value-if (type)
   "Return the value of the current section if it is of TYPE."
@@ -340,6 +549,214 @@ This is useful if you use very long branch names."
                     (jitte-read-revset "Show log for revset: "))))
     (when revset
       (jitte-log revset))))
+
+;;; Revision Show Mode
+
+(defvar jitte-revision-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map jitte-mode-map)
+    (define-key map "q" #'quit-window)
+    map)
+  "Keymap for `jitte-revision-mode'.")
+
+(define-derived-mode jitte-revision-mode jitte-mode "Jitte Revision"
+  "Mode for viewing a single jujutsu commit."
+  :group 'jitte-log
+  (hack-dir-local-variables-non-file-buffer)
+  (setq truncate-lines nil))
+
+(defun jitte-revision-insert-commit (commit)
+  "Insert commit COMMIT details and diff."
+  (jitte-with-repository nil
+    ;; First section: Commit Info
+    (magit-insert-section (commit-info)
+      (magit-insert-heading "Commit Info")
+      (jitte-revision-wash-show commit)
+      (insert "\n"))
+    
+    ;; Second section: Diff  
+    (magit-insert-section (commit-diff)
+      (magit-insert-heading "Diff")
+      (jitte-revision-wash-diff commit))))
+
+(defun jitte-revision-wash-show (commit)
+  "Insert jj show output for COMMIT."
+  (let ((output (jitte-run-jj-sync "show" commit)))
+    (when output
+      (let ((lines (split-string output "\n")))
+        (jitte-revision-parse-show-output lines)))))
+
+(defun jitte-revision-parse-show-output (lines)
+  "Parse jj show output LINES into formatted display."
+  (let (commit-id change-id bookmarks author committer description)
+    ;; Parse the metadata
+    (dolist (line lines)
+      (cond
+       ((string-match "^Commit ID: \\(.+\\)$" line)
+        (setq commit-id (match-string 1 line)))
+       ((string-match "^Change ID: \\(.+\\)$" line)
+        (setq change-id (match-string 1 line)))
+       ((string-match "^Bookmarks: \\(.+\\)$" line)
+        (setq bookmarks (match-string 1 line)))
+       ((string-match "^Author   : \\(.+\\)$" line)
+        (setq author (match-string 1 line)))
+       ((string-match "^Committer: \\(.+\\)$" line)
+        (setq committer (match-string 1 line)))))
+    
+    ;; Extract description (simple version for now)
+    (let ((desc-start (cl-position "" lines :test #'string=)))
+      (when desc-start
+        (let ((desc-lines (nthcdr (1+ desc-start) lines)))
+          (setq description (string-join 
+                           (cl-remove-if (lambda (l) (string-match "^\\(Modified\\|Added\\|Deleted\\)" l)) desc-lines)
+                           "\n")))))
+    
+    ;; Insert formatted output
+    (when bookmarks
+      (insert (propertize bookmarks 'font-lock-face 'jitte-branch-remote) " "))
+    (when commit-id
+      (insert (propertize commit-id 'font-lock-face 'jitte-hash) "\n"))
+    (when change-id
+      (insert "Change:     " (propertize change-id 'font-lock-face 'jitte-hash) "\n"))
+    (when author
+      (insert "Author:     " (propertize author 'font-lock-face 'jitte-log-author) "\n"))
+    (when committer
+      (insert "Committer:  " (propertize committer 'font-lock-face 'jitte-log-author) "\n"))
+    (insert "\n")
+    (when description
+      (insert (string-trim description) "\n"))))
+
+(defun jitte-revision-wash-diff (commit)
+  "Insert jj diff output for COMMIT."
+  (let ((output (jitte-run-jj-sync "diff" "-r" commit)))
+    (when output
+      (insert output))))
+
+;;; Rebase Operations
+
+(defun jitte-log-rebase-prompt (&optional commit)
+  "Rebase COMMIT with prompted destination."
+  (interactive)
+  (let ((source-change-id (or commit 
+                              (jitte-log-section-value-if 'commit)
+                              (user-error "No commit at point")))
+        (destination (read-string "Rebase destination: " "@")))
+    (when (y-or-n-p (format "Rebase %s onto %s? " 
+                            (substring source-change-id 0 8)
+                            destination))
+      (jitte-log-run-jj-command "rebase" "-r" source-change-id "-d" destination))))
+
+(defvar-local jitte-rebase-source-commit nil
+  "The source commit for interactive rebase.")
+
+(defvar jitte-rebase-select-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map jitte-log-mode-map)
+    (define-key map "RET" #'jitte-rebase-select-destination)
+    (define-key map "C-c C-c" #'jitte-rebase-select-destination)
+    (define-key map "q" #'jitte-rebase-select-quit)
+    (define-key map "C-c C-k" #'jitte-rebase-select-quit)
+    map)
+  "Keymap for jj rebase destination selection.")
+
+(define-derived-mode jitte-rebase-select-mode jitte-log-mode "Jitte Rebase Select"
+  "Mode for selecting rebase destination.
+
+\\<jitte-rebase-select-mode-map>
+Type \\[jitte-rebase-select-destination] to select destination at point.
+Type \\[jitte-rebase-select-quit] to abort rebase selection."
+  :group 'jitte-log)
+
+(defun jitte-log-rebase-interactive (&optional commit)
+  "Interactively rebase COMMIT by selecting destination."
+  (interactive)
+  (let ((source-commit (or commit
+                           (jitte-log-section-value-if 'commit)
+                           (user-error "No commit at point"))))
+    (jitte-rebase-select-setup-buffer source-commit)))
+
+(defun jitte-rebase-select-setup-buffer (source-commit)
+  "Set up rebase selection buffer for SOURCE-COMMIT."
+  (let ((buffer (jitte-setup-buffer 'jitte-rebase-select-mode)))
+    (with-current-buffer buffer
+      (setq jitte-rebase-source-commit source-commit)
+      (setq jitte-buffer-revisions "all()")
+      (setq jitte-buffer-log-args jitte-log-default-arguments)
+      (jitte-log-refresh-buffer)
+      (setq header-line-format
+            (format "Select destination for rebasing %s (RET to confirm, q to quit)"
+                    (substring source-commit 0 8))))
+    (jitte-display-buffer buffer)
+    buffer))
+
+(defun jitte-rebase-select-destination ()
+  "Select commit at point as rebase destination."
+  (interactive)
+  (let ((destination (jitte-log-section-value-if 'commit)))
+    (unless destination
+      (user-error "No commit at point"))
+    (when (string= destination jitte-rebase-source-commit)
+      (user-error "Cannot rebase commit onto itself"))
+    (quit-window t)
+    (when (y-or-n-p (format "Rebase %s onto %s? " 
+                            (substring jitte-rebase-source-commit 0 8)
+                            (substring destination 0 8)))
+      (jitte-log-run-jj-command "rebase" "-r" jitte-rebase-source-commit "-d" destination))))
+
+(defun jitte-rebase-select-quit ()
+  "Quit rebase selection."
+  (interactive)
+  (quit-window t)
+  (message "Rebase cancelled"))
+
+;; Helper function to run jj commands for log operations
+(defun jitte-log-run-jj-command (command &rest args)
+  "Run jj COMMAND with ARGS and display result."
+  (jitte-with-repository nil
+    (message "Running: jj %s %s" command (string-join args " "))
+    (let ((result (apply #'jitte-run-jj command args)))
+      (if (zerop result)
+          (progn
+            (message "jj %s completed successfully" command)
+            (jitte-refresh))
+        (user-error "jj %s failed" command)))))
+
+;;; Transient Interface
+
+(require 'transient)
+
+;;;###autoload (autoload 'jitte-log-transient "jitte-log" nil t)
+(transient-define-prefix jitte-log-transient ()
+  "Show Jujutsu commit log with options."
+  :class 'transient-prefix
+  ["Arguments"
+   ("-n" "Limit commits" "--limit=" :reader transient-read-number-N+)
+   ("-r" "Revisions" "-r" :reader jitte-log-read-revisions)
+   ("--no-graph" "Disable graph" "--no-graph")
+   ("-T" "Template" "-T" :reader jitte-log-read-template)]
+  ["Log"
+   ("l" "current" jitte-log-current)
+   ("a" "all" jitte-log-all)
+   ("o" "other" jitte-log-other)])
+
+(defun jitte-log-read-revisions (&rest _)
+  "Read revisions for jj log."
+  (read-string "Revisions: " "@"))
+
+(defun jitte-log-read-template (&rest _)
+  "Read template for jj log."
+  (read-string "Template: " "oneline"))
+
+(defun jitte-log-other (revisions &optional args)
+  "Show log for REVISIONS with ARGS."
+  (interactive (list (jitte-log-read-revisions)
+                     (transient-args 'jitte-log-transient)))
+  (jitte-log-setup-buffer revisions args))
+
+(defun jitte-log-refresh ()
+  "Refresh the current log buffer."
+  (interactive)
+  (jitte-refresh))
 
 (provide 'jitte-log)
 
