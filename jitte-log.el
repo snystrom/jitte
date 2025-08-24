@@ -187,6 +187,7 @@ This is useful if you use very long branch names."
 
 (defvar jitte-commit-section-map
   (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map jitte-log-mode-map)
     (define-key map "RET" #'jitte-log-show-commit)
     (define-key map "l" #'jitte-log-refresh)
     (define-key map "e" #'jitte-log-edit)
@@ -226,21 +227,31 @@ Type \\[jitte-log-rebase-prompt] to rebase commit at point with prompted destina
 (defun jitte-log-setup-evil-keymaps ()
   "Setup keymaps for evil-mode integration in jitte-log-mode."
   (declare-function jitte-mode--evil-active-p "jitte-mode")
-  (when (and (fboundp 'jitte-use-evil-bindings)
+  (when (and (boundp 'jitte-use-evil-bindings)
              jitte-use-evil-bindings 
              (jitte-mode--evil-active-p))
     (jitte-log-setup-evil-keymap)))
 
 (defun jitte-log-setup-evil-keymap ()
   "Setup evil keymap for jitte-log-mode."
-  (when (boundp 'evil-normal-state-local-map)
-    ;; Create a minor mode for log-specific evil bindings
-    (unless (boundp 'jitte-log-evil-mode)
-      (define-minor-mode jitte-log-evil-mode
-        "Evil integration for jitte-log-mode."
-        :init-value t
-        :keymap jitte-log-mode-evil-map))
-    (jitte-log-evil-mode 1)))
+  (when (and (boundp 'evil-mode) evil-mode)
+    ;; Use evil-local-set-key to set up log-specific bindings
+    (when (fboundp 'evil-local-set-key)
+      (evil-local-set-key 'normal "gj" #'jitte-log-move-to-revision)
+      (evil-local-set-key 'normal "=" #'jitte-log-toggle-commit-limit)
+      (evil-local-set-key 'normal "+" #'jitte-log-double-commit-limit)
+      (evil-local-set-key 'normal "-" #'jitte-log-half-commit-limit)
+      (evil-local-set-key 'normal (kbd "RET") #'jitte-log-show-commit)
+      (evil-local-set-key 'normal "gl" #'jitte-log-refresh)
+      (evil-local-set-key 'normal "ge" #'jitte-log-edit)
+      (evil-local-set-key 'normal "gn" #'jitte-log-new)
+      (evil-local-set-key 'normal "gd" #'jitte-log-describe)
+      (evil-local-set-key 'normal "gR" #'jitte-log-rebase-interactive)
+      (evil-local-set-key 'normal "gr" #'jitte-log-rebase-prompt)
+      (evil-local-set-key 'normal "gA" #'jitte-log-cherry-pick))
+    ;; Ensure we're in normal state
+    (when (fboundp 'evil-normal-state)
+      (evil-normal-state))))
 
 ;;; Setup
 

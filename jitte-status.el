@@ -169,7 +169,8 @@ If optional DIRECTORY is provided, use that directory instead."
       (insert (format "Working copy: %s"
                       (or change-id "unknown")))
       (when commit-id
-        (insert (format " (%s)" (substring commit-id 0 12))))
+        ;(insert (format " (%s)" (substring commit-id 0 12))))
+        (insert "TODO: FIX ME"))
       (insert "\n"))))
 
 (defun jitte-insert-bookmarks-header ()

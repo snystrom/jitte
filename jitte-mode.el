@@ -394,13 +394,13 @@ With prefix argument KILL-BUFFER, kill the buffer instead."
   "Set the header line format for the current buffer."
   (setq header-line-format
         (substitute-command-keys
-         "\\<jitte-mode-map>Type \\[jitte-dispatch] for help")))
+         "\\<jitte-mode-map>Type \\[jitte-dispatch-popup] for help")))
 
 ;;; Evil Mode Integration
 
 (defun jitte-setup-evil-keymaps ()
   "Setup keymaps for evil-mode integration if needed."
-  (when (and (fboundp 'jitte-use-evil-bindings)
+  (when (and (boundp 'jitte-use-evil-bindings)
              jitte-use-evil-bindings 
              (jitte-mode--evil-active-p))
     (jitte-setup-evil-keymap-for-mode)))
@@ -411,15 +411,26 @@ With prefix argument KILL-BUFFER, kill the buffer instead."
 
 (defun jitte-setup-evil-keymap-for-mode ()
   "Setup evil keymap for the current jitte mode."
-  (when (boundp 'evil-normal-state-local-map)
-    ;; Use the evil-friendly keymap as a minor-mode keymap
-    (let ((minor-mode-name (intern (format "%s-evil-mode" major-mode))))
-      (unless (boundp minor-mode-name)
-        (eval `(define-minor-mode ,minor-mode-name
-                "Evil integration for jitte mode."
-                :init-value t
-                :keymap jitte-mode-evil-map)))
-      (funcall minor-mode-name 1))))
+  (when (and (boundp 'evil-mode) evil-mode)
+    ;; Use evil-local-set-key to set up bindings in normal state
+    (when (fboundp 'evil-local-set-key)
+      (evil-local-set-key 'normal "q" #'jitte-mode-bury-buffer)
+      (evil-local-set-key 'normal "Q" #'jitte-mode-quit-window)
+      (evil-local-set-key 'normal (kbd "RET") #'jitte-visit-thing)
+      (evil-local-set-key 'normal (kbd "TAB") #'jitte-section-toggle)
+      (evil-local-set-key 'normal [backtab] #'jitte-section-cycle-global)
+      (evil-local-set-key 'normal "^" #'jitte-section-up)
+      (evil-local-set-key 'normal "gr" #'jitte-refresh)
+      (evil-local-set-key 'normal "gR" #'jitte-refresh-all)
+      (evil-local-set-key 'normal "?" #'jitte-help)
+      (evil-local-set-key 'normal "+" #'jitte-diff-more-context)
+      (evil-local-set-key 'normal "-" #'jitte-diff-less-context)
+      (evil-local-set-key 'normal "0" #'jitte-diff-default-context)
+      (evil-local-set-key 'normal "<" #'jitte-diff-smaller-hunks)
+      (evil-local-set-key 'normal ">" #'jitte-diff-larger-hunks))
+    ;; Also set the evil initial state
+    (when (fboundp 'evil-normal-state)
+      (evil-normal-state))))
 
 (defun jitte-previous-line ()
   "Move to previous line, compatible with evil-mode."
