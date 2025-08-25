@@ -103,6 +103,7 @@
   "e"   #'jj-edit
   "d"   #'jj-log-describe
   "n"   #'jj-new
+  "c"   #'jj-log-commit
   "u"   #'jj-quick-undo
   "R"   #'jj-rebase-interactive
   "r"   #'jj-rebase-prompt)
@@ -439,6 +440,7 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
   "l"   #'jj-log
   "e"   #'jj-edit
   "n"   #'jj-new
+  "c"   #'jj-log-commit
   "R"   #'jj-rebase-interactive
   "r"   #'jj-rebase-prompt
   "u"   #'jj-quick-undo
@@ -459,6 +461,7 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
      ;; Ensure n key binds to jj-new in jj-log-mode instead of evil-ex-search-next
      (evil-define-key 'normal jj-log-mode-map
        "n" #'jj-new
+       "c" #'jj-log-commit
        "e" #'jj-edit
        "d" #'jj-log-describe
        "R" #'jj-rebase-interactive
@@ -468,6 +471,7 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
      ;; Also ensure section-specific bindings work
      (evil-define-key 'normal jj-commit-section-map
        "n" #'jj-new
+       "c" #'jj-log-commit
        "e" #'jj-edit
        "d" #'jj-log-describe
        "R" #'jj-rebase-interactive
@@ -488,6 +492,14 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
 Opens the description in an Emacs buffer for editing."
   (interactive)
   (jj-describe revision)
+  (magit-refresh))
+
+(defun jj-log-commit (&optional revision)
+  "Describe commit at REVISION and create new on top."
+  (interactive)
+  (jj-describe revision)
+  (jj-new revision)
+  (jj-log-default)
   (magit-refresh))
 
 (defun jj--run-command (command &rest args)

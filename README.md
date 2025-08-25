@@ -1,5 +1,5 @@
 ## Jitte
-A major mode for `jj`. 
+A major mode for `jj`. Currently implemented on top of `magit` primitives for rapid prototyping. Standalone comming soon(tm) (maybe never!). I'm adding features as I need them to get my work done. At the moment, this package is for me.
 
 Currently only works in colocated repos as it depends on `magit`, sorry. 
 
@@ -32,18 +32,19 @@ Here's what I do
 ```
 
 
-The entrypoint to most actions is `jj-log-default`
+The entrypoint to most actions is `jj-log-default`. Right now there is some jank, so you might have to call `jj-log` first.
 
 The keybinds while you're in there...
 ``` elisp
-  "RET" #'jj-show-commit
-  "l"   #'jj-log
-  "e"   #'jj-edit
-  "d"   #'jj-log-describe
-  "n"   #'jj-new
-  "u"   #'jj-quick-undo
-  "R"   #'jj-rebase-interactive
-  "r"   #'jj-rebase-prompt
-  "g"   #'magit-refresh
-  "q"   #'magit-log-bury-buffer
+  "RET" ; view commit at point
+  "l"   ; modify log view
+  "e"   ; edit commit at point
+  "c"   ; `jj commit` on selected changes (edit description, add new commit on top)
+  "d"   ; edit commit description at point
+  "n"   ; create new commit at point
+  "u"   ; undo last op
+  "R"   ; interactive rebase 
+  "r"   ; rebase selected commit
+  "g"   ; refresh the log buffer
+  "q"   ; quit log buffer
 ```
