@@ -1,7 +1,10 @@
 ## Jitte
-A major mode for `jj`.
+A major mode for `jj`. 
 
-Currently only works in colocated repos as it depends on `magit`, sorry.
+Currently only works in colocated repos as it depends on `magit`, sorry. 
+
+> [!WARNING]  
+> Severely incomplete
 
 ```
        
@@ -30,3 +33,17 @@ Here's what I do
 
 
 The entrypoint to most actions is `jj-log-default`
+
+The keybinds while you're in there...
+``` elisp
+  "RET" #'jj-show-commit
+  "l"   #'jj-log
+  "e"   #'jj-edit
+  "d"   #'jj-log-describe
+  "n"   #'jj-new
+  "u"   #'jj-quick-undo
+  "R"   #'jj-rebase-interactive
+  "r"   #'jj-rebase-prompt
+  "g"   #'magit-refresh
+  "q"   #'magit-log-bury-buffer
+```
