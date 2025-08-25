@@ -303,9 +303,14 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
       (while (re-search-forward "\\b\\([a-zA-Z0-9_/@*()-][a-zA-Z0-9_/@*().-]*[a-zA-Z0-9_/@*().-]\\|[a-zA-Z0-9_/@*()-]\\)\\b" 
                                 (line-end-position) t)
         (let ((candidate (match-string 1)))
-          ;; Skip if it looks like a hash (all lowercase hex)
-          (unless (and (>= (length candidate) 7)
-                       (string-match-p "^[a-f0-9]+$" candidate))
+          ;; Skip if it looks like a hash (all lowercase hex) or change ID with ? or *
+          (unless (or (and (>= (length candidate) 7)
+                           (string-match-p "^[a-f0-9]+$" candidate))
+                      ;; Skip if it looks like a JJ change ID (contains ?? or * suffix)
+                      (string-match-p "\\?\\?$\\|\\*$" candidate)
+                      ;; Skip if it looks like a change ID with ? or * characters
+                      (and (>= (length candidate) 8)
+                           (string-match-p "^[a-z0-9?*]+$" candidate)))
             (put-text-property (match-beginning 1) (match-end 1)
                                'font-lock-face 'magit-branch-remote)))))
     
