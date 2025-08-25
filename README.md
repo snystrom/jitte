@@ -16,13 +16,13 @@ Currently only works in colocated repos as it depends on `magit`, sorry.
 ```
 
 ### Doom config
-Right now this package doesn't actually install properly, but you can clone the repo & load-file it. Yay *eyeroll*.
 
 Here's what I do
 ``` elisp
-(load-file "~/git/jitte/jj-describe.el")
-(load-file "~/git/jitte/jj-log.el")
-
+(package! jitte
+  :recipe (:local-repo "~/git/jitte")
+  )
+  
 (map! :leader
       :desc "jj-log-default"
       "j j" #'jj-log-default

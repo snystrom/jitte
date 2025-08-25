@@ -58,6 +58,42 @@ The major mode configured here is turned on by the minor mode
     map)
   "Keymap used by `jj-describe-mode'.")
 
+;;; Helper Functions
+
+(defun jj-describe--find-root ()
+  "Find the root of the current jj repository."
+  (let ((dir (locate-dominating-file default-directory ".jj")))
+    (when dir
+      (expand-file-name dir))))
+
+(defun jj-describe--run-with-editor (&rest args)
+  "Run jj with ARGS, setting up Emacs as the editor."
+  ;; Enable global mode to catch the temp file
+  (unless global-jj-describe-mode
+    (global-jj-describe-mode 1))
+
+  ;; Run jj describe with editor setup (similar to magit's approach)
+  (with-editor* "JJ_EDITOR"
+    (let ((process (apply #'start-process "jj-describe" nil
+                         jj-describe-executable args)))
+      (set-process-sentinel process #'jj-describe--process-sentinel)
+      (message "Running jj %s..." (string-join args " "))
+      process)))
+
+(defun jj-describe--success-cleanup ()
+  "Close describe buffer."
+  (interactive)
+  (kill-buffer (current-buffer))
+  (message "jj describe completed"))
+
+(defun jj-describe--process-sentinel (process event)
+  "Handle completion of jj describe PROCESS with EVENT."
+  (when (memq (process-status process) '(exit signal))
+    (let ((exit-code (process-exit-status process)))
+      (if (= exit-code 0)
+          (jj-describe--success-cleanup)
+        (message "jj describe failed with exit code %d" exit-code)))))
+
 ;;; Mode Definition
 
 (define-minor-mode jj-describe-mode
@@ -146,41 +182,6 @@ Prompts for the revision to describe."
   (interactive "sRevision to describe: ")
   (jj-describe revision))
 
-;;; Helper Functions
-
-(defun jj-describe--find-root ()
-  "Find the root of the current jj repository."
-  (let ((dir (locate-dominating-file default-directory ".jj")))
-    (when dir
-      (expand-file-name dir))))
-
-(defun jj-describe--run-with-editor (&rest args)
-  "Run jj with ARGS, setting up Emacs as the editor."
-  ;; Enable global mode to catch the temp file
-  (unless global-jj-describe-mode
-    (global-jj-describe-mode 1))
-  
-  ;; Run jj describe with editor setup (similar to magit's approach)
-  (with-editor* "JJ_EDITOR"
-    (let ((process (apply #'start-process "jj-describe" nil 
-                         jj-describe-executable args)))
-      (set-process-sentinel process #'jj-describe--process-sentinel)
-      (message "Running jj %s..." (string-join args " "))
-      process)))
-
-(defun jj-describe--success-cleanup ()
-  "Close describe buffer."
-  (interactive)
-  (kill-buffer (current-buffer))
-  (message "jj describe completed"))
-
-(defun jj-describe--process-sentinel (process event)
-  "Handle completion of jj describe PROCESS with EVENT."
-  (when (memq (process-status process) '(exit signal))
-    (let ((exit-code (process-exit-status process)))
-      (if (= exit-code 0)
-          (jj-describe--success-cleanup)
-        (message "jj describe failed with exit code %d" exit-code)))))
 
 ;;; Autoload and Activation
 
@@ -194,6 +195,7 @@ Prompts for the revision to describe."
 ;; Auto-enable if in a jj repository
 ;;;###autoload
 (when (and (boundp 'after-init-hook)
+           (fboundp 'jj-describe--find-root)
            (jj-describe--find-root))
   (add-hook 'after-init-hook #'jj-describe-enable))
 

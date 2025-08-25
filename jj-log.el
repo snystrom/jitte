@@ -37,6 +37,14 @@
   :group 'jj-log
   :type 'hook)
 
+;;; Helper Functions
+
+(defun jj-log--find-root ()
+  "Find the root of the current jj repository."
+  (let ((dir (locate-dominating-file default-directory ".jj")))
+    (when dir
+      (expand-file-name dir))))
+
 ;;; Faces
 
 (defface jj-log-current-commit
@@ -422,14 +430,6 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
     (delete-region (point-min) (point-max))
     (insert content)))
 
-;;; Helper Functions
-
-(defun jj-log--find-root ()
-  "Find the root of the current jj repository."
-  (let ((dir (locate-dominating-file default-directory ".jj")))
-    (when dir
-      (expand-file-name dir))))
-
 ;;; Section Keymaps
 
 (defvar-keymap jj-commit-section-map
@@ -677,6 +677,7 @@ Type \\[jj-rebase-select-quit] to abort rebase selection."
 ;; Auto-enable if in a jj repository
 ;;;###autoload
 (when (and (boundp 'after-init-hook)
+           (fboundp 'jj-log--find-root)
            (jj-log--find-root))
   (add-hook 'after-init-hook #'jj-log-enable))
 
