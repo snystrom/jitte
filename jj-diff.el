@@ -89,7 +89,7 @@
 (defvar-keymap jj-diff-mode-map
   :doc "Keymap for `jj-diff-mode'."
   :parent magit-mode-map
-  "d" #'jj-diff
+  "d" #'jj-diff-at-point
   "g" #'magit-refresh
   "q" #'magit-log-bury-buffer)
 
@@ -98,7 +98,7 @@
 
 \\<jj-diff-mode-map>\
 Type \\[magit-refresh] to refresh the current buffer.
-Type \\[jj-diff] to change diff arguments.
+Type \\[jj-diff-at-point] to change diff arguments.
 
 \\{jj-diff-mode-map}"
   :group 'jj-diff
@@ -130,6 +130,29 @@ Type \\[jj-diff] to change diff arguments.
    ("w" "Working copy diff" jj-diff-working-copy)
    ("c" "Between commits" jj-diff-between-revisions)])
 
+;;;###autoload (autoload 'jj-diff-at-point "jj-diff" nil t)
+(transient-define-prefix jj-diff-at-point ()
+  "Show Jujutsu diff with commit at point as default."
+  :class 'transient-prefix
+  ["Revision Selection"
+   ("-r" "Revisions" "--revisions=" :reader jj-diff-read-revisions-with-context)
+   ("-f" "From revision" "--from=" :reader jj-diff-read-revision-with-context)
+   ("-t" "To revision" "--to=" :reader jj-diff-read-revision-with-context)]
+  ["Output Format"
+   ("-s" "Summary only" "--summary")
+   ("--stat" "Statistics" "--stat")
+   ("--name-only" "Names only" "--name-only")
+   ("--git" "Git format" "--git")
+   ("--color-words" "Color words" "--color-words")
+   ("--types" "Show type changes" "--types")]
+  ["Whitespace"
+   ("-w" "Ignore all whitespace" "-w")
+   ("-b" "Ignore space changes" "-b")]
+  ["Actions"
+   ("d" "Show diff" jj-diff-show)
+   ("w" "Working copy diff" jj-diff-working-copy)
+   ("c" "Between commits" jj-diff-between-revisions)])
+
 (defun jj-diff-read-revisions (&rest _)
   "Read revisions for jj diff."
   (read-string "Revisions: " "@"))
@@ -137,6 +160,16 @@ Type \\[jj-diff] to change diff arguments.
 (defun jj-diff-read-revision (&rest _)
   "Read a single revision for jj diff."
   (read-string "Revision: " "@"))
+
+(defun jj-diff-read-revisions-with-context (&rest _)
+  "Read revisions for jj diff, using commit at point as default if available."
+  (let ((default (or (magit-section-value-if 'commit) "@")))
+    (read-string "Revisions: " default)))
+
+(defun jj-diff-read-revision-with-context (&rest _)
+  "Read a single revision for jj diff, using commit at point as default if available."
+  (let ((default (or (magit-section-value-if 'commit) "@")))
+    (read-string "Revision: " default)))
 
 ;;; Buffer Setup
 
@@ -242,7 +275,7 @@ Type \\[jj-diff] to change diff arguments.
 (eval-after-load 'evil
   '(progn
      (evil-define-key 'normal jj-diff-mode-map
-       "d" #'jj-diff
+       "d" #'jj-diff-at-point
        "g" #'magit-refresh
        "q" #'magit-log-bury-buffer)))
 
