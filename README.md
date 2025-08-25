@@ -20,7 +20,7 @@ Currently only works in colocated repos as it depends on `magit`, sorry.
 Here's what I do
 ``` elisp
 (package! jitte
-  :recipe (:local-repo "~/git/jitte")
+  :recipe (:host github :repo "snystrom/jitte")
   )
   
 (map! :leader
