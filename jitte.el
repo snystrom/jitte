@@ -24,4 +24,5 @@
 (provide 'jitte)
 (require 'jj-describe)
 (require 'jj-log)
+(require 'jj-diff)
 ;;; jitte.el ends here

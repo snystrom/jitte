@@ -102,6 +102,7 @@
   "q"   #'magit-log-bury-buffer
   "e"   #'jj-edit
   "d"   #'jj-log-describe
+  "D"   #'jj-diff
   "n"   #'jj-new
   "c"   #'jj-log-commit
   "u"   #'jj-quick-undo
@@ -117,6 +118,7 @@ Type \\[jj-show-commit] to visit the commit at point.
 Type \\[jj-log] to change log arguments.
 Type \\[jj-edit] to edit the commit at point.
 Type \\[jj-new] to create a new commit on top of the commit at point.
+Type \\[jj-diff] to open diff viewer.
 Type \\[jj-rebase-interactive] to rebase commit at point with interactive destination selection.
 Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
 
@@ -441,6 +443,7 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
   "e"   #'jj-edit
   "n"   #'jj-new
   "c"   #'jj-log-commit
+  "D"   #'jj-diff
   "R"   #'jj-rebase-interactive
   "r"   #'jj-rebase-prompt
   "u"   #'jj-quick-undo
@@ -464,6 +467,7 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
        "c" #'jj-log-commit
        "e" #'jj-edit
        "d" #'jj-log-describe
+       "D" #'jj-diff
        "R" #'jj-rebase-interactive
        "r" #'jj-rebase-prompt
        "u" #'jj-quick-undo)
@@ -474,6 +478,7 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
        "c" #'jj-log-commit
        "e" #'jj-edit
        "d" #'jj-log-describe
+       "D" #'jj-diff
        "R" #'jj-rebase-interactive
        "r" #'jj-rebase-prompt
        "u" #'jj-quick-undo)
