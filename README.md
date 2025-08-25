@@ -40,7 +40,8 @@ The keybinds while you're in there...
   "l"   ; modify log view
   "e"   ; edit commit at point
   "c"   ; `jj commit` on selected changes (edit description, add new commit on top)
-  "d"   ; edit commit description at point
+  "d"   ; show diff at point
+  "D"   ; edit commit description at point
   "n"   ; create new commit at point
   "u"   ; undo last op
   "R"   ; interactive rebase 

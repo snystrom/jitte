@@ -101,8 +101,8 @@
   "g"   #'magit-refresh
   "q"   #'magit-log-bury-buffer
   "e"   #'jj-edit
-  "d"   #'jj-log-describe
-  "D"   #'jj-diff
+  "D"   #'jj-log-describe
+  "d"   #'jj-diff
   "n"   #'jj-new
   "c"   #'jj-log-commit
   "u"   #'jj-quick-undo
@@ -443,7 +443,7 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
   "e"   #'jj-edit
   "n"   #'jj-new
   "c"   #'jj-log-commit
-  "D"   #'jj-diff
+  "d"   #'jj-diff
   "R"   #'jj-rebase-interactive
   "r"   #'jj-rebase-prompt
   "u"   #'jj-quick-undo
@@ -466,8 +466,8 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
        "n" #'jj-new
        "c" #'jj-log-commit
        "e" #'jj-edit
-       "d" #'jj-log-describe
-       "D" #'jj-diff
+       "D" #'jj-log-describe
+       "d" #'jj-diff
        "R" #'jj-rebase-interactive
        "r" #'jj-rebase-prompt
        "u" #'jj-quick-undo)
@@ -477,8 +477,8 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
        "n" #'jj-new
        "c" #'jj-log-commit
        "e" #'jj-edit
-       "d" #'jj-log-describe
-       "D" #'jj-diff
+       "D" #'jj-log-describe
+       "d" #'jj-diff
        "R" #'jj-rebase-interactive
        "r" #'jj-rebase-prompt
        "u" #'jj-quick-undo)
