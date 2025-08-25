@@ -254,7 +254,7 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
     (goto-char (point-min))
     
     ;; Color commit symbols with different colors for mutable vs immutable
-    (while (re-search-forward "\\(^@\\|○\\|◆\\|~\\)" nil t)
+    (while (re-search-forward "\\(@\\|○\\|◆\\|~\\)" nil t)
       (let ((symbol (match-string 1))
             (start (match-beginning 1))
             (end (match-end 1)))
