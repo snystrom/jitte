@@ -2,11 +2,11 @@
 
 ;; Copyright (C) 2025
 
-;; Author: Your Name
+;; Author: Spencer Nystrom
 ;; Version: 1.0.0
 ;; Package-Requires: ((emacs "25.1") (with-editor "3.0.0"))
 ;; Keywords: vc, tools
-;; URL: 
+;; URL: https://github.com/snystrom/jitte
 
 ;;; Commentary:
 

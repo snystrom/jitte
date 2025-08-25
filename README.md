@@ -11,7 +11,7 @@ Currently only works in colocated repos as it depends on `magit`, sorry.
     │ ○  /\_| || | | |   | | |  /_ 
     ├─╯  \____/\_/ \_/   \_/ \____\
     │ 
-     (get it?)
+     (get it? cause it looks like... nevermind...)
 ```
 
 ### Doom config
