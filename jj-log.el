@@ -390,22 +390,23 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
     
     ;; Clear buffer and insert magit-style format
     (delete-region (point-min) (point-max))
-    
-    ;; Insert header line with bookmarks/refs and commit ID
-    (when bookmarks
-      (insert (propertize bookmarks 'font-lock-face 'magit-branch-remote) " "))
-    (when commit-id
-      (insert (propertize commit-id 'font-lock-face 'magit-hash) "\n"))
-    
+
     ;; Insert change ID
     (when change-id
       (insert "Change:     " (propertize change-id 'font-lock-face 'magit-hash) "\n"))
-    
+
+    (when commit-id
+      (insert "Commit:     " (propertize commit-id 'font-lock-face 'magit-hash) "\n"))
+
     ;; Insert author/committer info
     (when author
       (insert "Author:     " (propertize author 'font-lock-face 'magit-log-author) "\n"))
     (when committer
       (insert "Committer:  " (propertize committer 'font-lock-face 'magit-log-author) "\n"))
+
+    ;; Insert header line with bookmarks/refs and commit ID
+    (when bookmarks
+      (insert "Bookmarks:\n" (propertize bookmarks 'font-lock-face 'magit-branch-remote) "\n"))
     
     (insert "\n")
     
