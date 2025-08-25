@@ -67,6 +67,11 @@
   "Face for elided commits (~) symbol."
   :group 'jj-log)
 
+(defface jj-log-conflict
+  '((t :foreground "red" :weight bold))
+  "Face for conflicted commits (×) symbol."
+  :group 'jj-log)
+
 (defface jj-log-graph
   '((t :inherit magit-log-graph))
   "Face for graph lines."
@@ -254,7 +259,7 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
     (goto-char (point-min))
     
     ;; Color commit symbols with different colors for mutable vs immutable
-    (while (re-search-forward "\\(@\\|○\\|◆\\|~\\)" nil t)
+    (while (re-search-forward "\\(@\\|○\\|◆\\|~\\|×\\)" nil t)
       (let ((symbol (match-string 1))
             (start (match-beginning 1))
             (end (match-end 1)))
@@ -263,7 +268,8 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
                             ((string= symbol "@") 'jj-log-current-commit)
                             ((string= symbol "○") 'jj-log-mutable-commit)
                             ((string= symbol "◆") 'jj-log-immutable-commit)
-                            ((string= symbol "~") 'jj-log-elided)))))
+                            ((string= symbol "~") 'jj-log-elided)
+                            ((string= symbol "×") 'jj-log-conflict)))))
     
     ;; Color graph lines (but not the commit symbols we just colored)
     (goto-char (point-min))
@@ -294,6 +300,12 @@ Type \\[jj-rebase-prompt] to rebase commit at point with prompted destination.
     (when (re-search-forward "\\b\\([a-f0-9]\\{7,40\\}\\)\\s-*$" nil t)
       (put-text-property (match-beginning 1) (match-end 1)
                          'font-lock-face 'magit-hash))
+    
+    ;; Color "conflict" text at end of lines
+    (goto-char (point-min))
+    (when (re-search-forward "\\bconflict\\s-*$" nil t)
+      (put-text-property (match-beginning 0) (match-end 0)
+                         'font-lock-face 'jj-log-conflict))
     
     ;; Color bookmarks and refs - look for patterns after date but before hash
     ;; This captures things like: main, spencer/feature-branch, git_head(), push-xyz*, @origin, etc.
